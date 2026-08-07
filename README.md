@@ -8,10 +8,8 @@ Vznikla pro **Planetum** jako projekce na velkou stěnu, ale je použitelná
 i samostatně — v prohlížeči, na tabletu i jako zdroj pro renderované video.
 
 **Živá verze:** https://astrometers.github.io/eclipse/
-(je potřeba zapnout GitHub Pages: *Settings → Pages → Deploy from a branch → main / root*)
 
 ---
-
 ## Co je uvnitř
 
 ```
