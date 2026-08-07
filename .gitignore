@@ -1,0 +1,6 @@
+node_modules/
+video/
+*.mp4
+*.webm
+frames/
+.DS_Store

@@ -1,0 +1,15 @@
+{
+  "name": "eclipse-render",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Render videa z vizualizace zatmění pomocí headless Chromia",
+  "scripts": {
+    "render": "node render-video.mjs",
+    "probe": "node render-video.mjs --probe=8",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  }
+}
