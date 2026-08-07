@@ -7,31 +7,43 @@
    window.eclipseExport a snímky sype rovnou do ffmpegu. Jeden renderer,
    žádná druhá implementace, která by se časem rozešla.
 
+   Veškerý čas renderu je snímání obrazu: na 2080×1560 padne na snímek 68 ms,
+   z toho vlastní výpočet a kreslení stránky jsou 4 ms. Zbytek je čtení
+   framebufferu a JPEG, a roste lineárně s pixely (~32 ms/Mpx). Optimalizovat
+   kreslení ve stránce tedy nemá smysl.
+
+   Snímat umí dvěma cestami, --capture. Obě dávají shodné snímky (porovnáno
+   po snímcích: v PNG bit za bitem, v JPEG nejhorší snímek 56 dB). Na volném
+   stroji jsou i stejně rychlé, 14,8 sn/s. Pod zátěží se rozcházejí, ale
+   nepředvídatelně oběma směry, takže když jedna cesta zpomalí, zkus druhou.
+
    Instalace:
      cd tools && npm install && npx playwright install chromium
      (a systémový ffmpeg: apt install ffmpeg)
 
-   Základní běh — 2,5 h reálného času od 19:00 SELČ, po 20minutových dílech:
+   Základní běh — 2 h 40 min reálného času od 19:00 SELČ, po 20minutových
+   dílech, tedy 8 souborů:
      cd tools && npm run render
 
    Parametry (všechny volitelné):
      --html=cesta          vstupní HTML                       (../index.html)
      --out=adresar         kam ukládat                 (video)
      --start=ISO           začátek v UTC               (2026-08-12T17:00:00Z)
-     --end=ISO             konec v UTC                 (2026-08-12T19:30:00Z)
+     --end=ISO             konec v UTC                 (2026-08-12T19:40:00Z)
      --speed=N             N× reálný čas, 1 = reálný   (1)
      --fps=N               snímků za sekundu           (10)
      --chunk=N             minut videa na soubor, 0 = jeden celek   (20)
      --width, --height     rozlišení                   (2080 × 1560)
      --k=N                 měřítko rozhraní            (1.7)
      --view=sites|map|alt  scéna, alt = střídání       (alt)
-     --altSec=N            po kolika sekundách střídat (120)
+     --altSec=N            po kolika sekundách střídat (30)
      --lean                skryje tabulku údajů
-     --chrome              nechá spodní lištu viditelnou
+     --bare                skryje spodní lištu se stavem
      --codec=jpeg|png      formát snímků do ffmpegu    (jpeg)
      --quality=N           kvalita jpegu 1–100         (92)
      --crf=N               kvalita h.264, níž = lepší  (20)
-     --preset=NAME         x264 preset                 (medium)
+     --preset=NAME         x264 preset                 (veryfast)
+     --capture=cast|shot   jak snímat obraz            (cast)
      --hash=RETEZEC        konfigurace stanovišť, viz odkaz z aplikace
      --probe=N             jen N testovacích PNG místo videa
 --------------------------------------------------------------------------- */
@@ -53,7 +65,7 @@ const CFG = {
   html:    argv.html    || new URL('../index.html', import.meta.url).pathname,
   out:     argv.out     || 'video',
   start:   Date.parse(argv.start || '2026-08-12T17:00:00Z'),
-  end:     Date.parse(argv.end   || '2026-08-12T19:30:00Z'),
+  end:     Date.parse(argv.end   || '2026-08-12T19:40:00Z'),
   speed:   Number(argv.speed   ?? 1),
   fps:     Number(argv.fps     ?? 10),
   chunk:   Number(argv.chunk   ?? 20),
@@ -61,13 +73,14 @@ const CFG = {
   height:  Number(argv.height  ?? 1560),
   k:       Number(argv.k       ?? 1.7),
   view:    argv.view    || 'alt',
-  altSec:  Number(argv.altSec  ?? 120),
+  altSec:  Number(argv.altSec  ?? 30),
   lean:    !!argv.lean,
-  bare:    !argv.chrome,
+  bare:    !!argv.bare,
   codec:   argv.codec   || 'jpeg',
   quality: Number(argv.quality ?? 92),
   crf:     Number(argv.crf     ?? 20),
-  preset:  argv.preset  || 'medium',
+  preset:  argv.preset  || 'veryfast',
+  capture: argv.capture || 'cast',
   hash:    argv.hash    || '',
   probe:   argv.probe ? Number(argv.probe) : 0,
 };
@@ -76,6 +89,8 @@ if (!Number.isFinite(CFG.start) || !Number.isFinite(CFG.end) || CFG.end <= CFG.s
   throw new Error('Neplatné --start / --end.');
 if (CFG.width % 2 || CFG.height % 2)
   throw new Error('h.264 potřebuje sudé rozlišení.');
+if (CFG.capture !== 'cast' && CFG.capture !== 'shot')
+  throw new Error('--capture čeká cast nebo shot.');
 
 const outSeconds  = (CFG.end - CFG.start) / 1000 / CFG.speed;
 const totalFrames = Math.round(outSeconds * CFG.fps);
@@ -89,7 +104,8 @@ const hhmmss = s => [s / 3600, (s % 3600) / 60, s % 60]
 console.log(`vstup       ${CFG.html}`);
 console.log(`úsek        ${new Date(CFG.start).toISOString()} → ${new Date(CFG.end).toISOString()}`);
 console.log(`výstup      ${hhmmss(outSeconds)} při ${CFG.speed}× · ${CFG.fps} fps · ${CFG.width}×${CFG.height}`);
-console.log(`snímků      ${totalFrames} v ${chunks} soubor(ech) po ${hhmmss(perChunk / CFG.fps)}\n`);
+console.log(`snímků      ${totalFrames} v ${chunks} soubor(ech) po ${hhmmss(perChunk / CFG.fps)}`);
+console.log(`snímání     ${CFG.capture === 'cast' ? 'CDP screencast' : 'page.screenshot'}\n`);
 
 fs.mkdirSync(CFG.out, { recursive: true });
 
@@ -132,6 +148,51 @@ if (CFG.probe) {
   process.exit(0);
 }
 
+/* ---------- snímání obrazu ---------- */
+/* Screencast posílá hotové JPEGy z kompozitoru, takže vypadne synchronní
+   readback, kterým se page.screenshot zdrží. Chromium ale vydá snímek jen
+   tehdy, když se něco překreslilo. Kdyby se dva sousední snímky nelišily ani
+   o pixel, žádný by nepřišel a čekání by uvízlo — proto STALL_MS, po kterých
+   použijeme poslední přijatý obraz. Ten je v tu chvíli správný právě proto,
+   že se od něj nic nezměnilo. Kolikrát k tomu došlo, vypíšeme na konci. */
+const STALL_MS = 2000;
+let stalls = 0;
+let capture = shot;
+
+if (CFG.capture === 'cast') {
+  const cdp = await page.context().newCDPSession(page);
+  let waiting = null, latest = null;
+
+  cdp.on('Page.screencastFrame', ({ data, sessionId }) => {
+    cdp.send('Page.screencastFrameAck', { sessionId }).catch(() => {});
+    latest = Buffer.from(data, 'base64');
+    if (waiting) { const w = waiting; waiting = null; w(latest); }
+  });
+
+  await cdp.send('Page.startScreencast', {
+    format: CFG.codec === 'png' ? 'png' : 'jpeg',
+    quality: CFG.quality,
+    maxWidth: CFG.width, maxHeight: CFG.height,
+    everyNthFrame: 1,
+  });
+
+  // Necháme dojet překreslení po begin(). Snímky, co teď přijdou, nikdo
+  // nečeká, takže jen padnou do latest a první snímek videa už bude čerstvý.
+  await page.waitForTimeout(400);
+
+  capture = async () => {
+    let timer;
+    const buf = await new Promise(res => {
+      waiting = res;
+      timer = setTimeout(() => { if (waiting === res) { waiting = null; res(null); } }, STALL_MS);
+    });
+    clearTimeout(timer);
+    if (buf) return buf;
+    stalls++;
+    return latest ?? await shot();
+  };
+}
+
 /* ---------- render ---------- */
 const started = Date.now();
 let done = 0;
@@ -154,7 +215,7 @@ for (let c = 0; c < chunks; c++) {
   for (let i = from; i < to; i++) {
     const ms = CFG.start + (i / CFG.fps) * 1000 * CFG.speed;
     await page.evaluate(t => window.eclipseExport.frame(t), ms);
-    const buf = await shot();
+    const buf = await capture();
     if (!ff.stdin.write(buf)) await once(ff.stdin, 'drain');
 
     if (++done % 50 === 0 || i === to - 1) {
@@ -177,6 +238,7 @@ await page.evaluate(() => window.eclipseExport.end());
 await browser.close();
 
 console.log(`\nHotovo za ${hhmmss((Date.now() - started) / 1000)}.`);
+if (stalls) console.log(`Screencast ${stalls}× nevydal nový snímek, použit předchozí obraz.`);
 if (chunks > 1) {
   const list = path.join(CFG.out, 'seznam.txt');
   fs.writeFileSync(list, Array.from({ length: chunks },

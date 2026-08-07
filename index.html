@@ -106,10 +106,10 @@ h1 span{color:var(--sun)}
 
 /* ---------- joint ---------- */
 #joint{flex:0 0 auto;padding:.5rem 1.2rem .7rem;background:#000}
-.jrow{display:grid;grid-template-columns:9rem 1fr;gap:.7rem;align-items:center;margin-bottom:.3rem}
+.jrow{display:grid;grid-template-columns:20rem 1fr;gap:.7rem;align-items:center;margin-bottom:.3rem}
 .jl{font-family:var(--cond);font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jbar{position:relative;height:1.2rem}
-.jaxis{position:relative;height:1.1rem;margin-left:9.7rem;border-top:1px solid var(--line)}
+.jaxis{position:relative;height:1.1rem;margin-left:20.7rem;border-top:1px solid var(--line)}
 .jaxis span{position:absolute;top:.15rem;font-family:var(--mono);font-size:.62rem;color:var(--dim2);transform:translateX(-50%)}
 
 /* ---------- drawer ---------- */
@@ -144,8 +144,8 @@ label.f input{width:100%}
 #closeDrawer{position:absolute;top:.8rem;right:1rem}
 #credit{
   flex:0 0 auto;padding:.35rem 1.2rem .45rem;text-align:right;
-  font-family:var(--cond);font-weight:600;font-size:.72rem;letter-spacing:.2em;
-  text-transform:uppercase;color:var(--dim2);
+  font-family:var(--cond);font-weight:600;font-size:.78rem;letter-spacing:.08em;
+  color:var(--dim2);
 }
 body.bare #joint{display:none}
 body.bare #gear{opacity:.25}
@@ -187,7 +187,7 @@ body.export .scene{transition:none}
   <div class="jaxis" id="jointAxis"></div>
 </section>
 
-<footer id="credit">Created by AstroMeters.eu for Planetum</footer>
+<footer id="credit">Created by AstroMeters (Roman Dvořák) for Planetum</footer>
 
 <button id="gear" title="Nastavení (S)">⚙</button>
 
@@ -462,14 +462,14 @@ function buildBand(){
 /* ==========================================================================
    4) Stav
    ========================================================================== */
-const PRESETS=[["Oblast León",42.407234661551875,-4.369812011718751,100],["Burgos",42.3439,-3.6969,860],
+const PRESETS=[["Planetum Team - Španělsko, oblast León",42.407234661551875,-4.369812011718751,100],["Burgos",42.3439,-3.6969,860],
   ["León",42.5987,-5.5671,837],["Palencia",42.0096,-4.5288,749],["Oviedo",43.3619,-5.8494,232],
   ["Santander",43.4623,-3.8100,15],["Soria",41.7636,-2.4649,1063],["Vitoria-Gasteiz",42.8467,-2.6716,525],
   ["Zaragoza",41.6488,-0.8891,208],["Teruel",40.3456,-1.1065,915],["Castellón",39.9864,-0.0513,30],
   ["Palma de Mallorca",39.5696,2.6502,13]];
 const S={
   home:{name:"Praha",lat:50.0875,lon:14.4213,alt:200,tz:2},
-  field:{name:"Oblast León",lat:42.407234661551875,lon:-4.369812011718751,alt:100,tz:2},
+  field:{name:"Planetum Team - Španělsko, oblast León",lat:42.407234661551875,lon:-4.369812011718751,alt:100,tz:2},
   exporting:false,mode:"live",playing:false,speed:60,simMs:Date.UTC(2026,7,12,18,25,0),
   view:"alt",altSec:25,k:1.5,sky:"full"
 };
